@@ -189,7 +189,154 @@ python3 run_pageindex.py --md_path /path/to/your/document.md
 > Note: in this function, we use "#" to determine node heading and their levels. For example, "##" is level 2, "###" is level 3, etc. Make sure your markdown file is formatted correctly. If your Markdown file was converted from a PDF or HTML, we don't recommend using this function, since most existing conversion tools cannot preserve the original hierarchy. Instead, use our [PageIndex OCR](https://pageindex.ai/blog/ocr), which is designed to preserve the original hierarchy, to convert the PDF to a markdown file and then use this function.
 </details>
 
-<!-- 
+<details>
+<summary><strong>MongoDB Persistence</strong></summary>
+<br>
+PageIndex supports persistent storage of processed documents in MongoDB. This enables:
+- Store document trees with versioning
+- Query historical document versions
+- Tag documents for organization
+- Retrieve documents by metadata
+
+**Setup MongoDB:**
+
+```bash
+# Start MongoDB with Docker
+docker-compose up -d
+```
+
+**Process and persist a document:**
+
+```bash
+python3 run_pageindex.py --pdf_path /path/to/document.pdf --persist --tags "financial,quarterly"
+```
+
+**Additional persistence flags:**
+
+```
+--persist          Store results in MongoDB
+--document-id      Specify document ID (auto-generated if not provided)
+--tags             Comma-separated tags for categorization
+--doc-type         Document type (e.g., "pdf", "markdown")
+```
+</details>
+
+---
+
+# 🔌 SDK Usage
+
+PageIndex provides a clean async SDK for integrating document processing and retrieval into your applications.
+
+### Installation
+
+```bash
+pip3 install --upgrade -r requirements.txt
+```
+
+### Configuration
+
+Create a `.env` file with your configuration:
+
+```bash
+# Required
+PAGEINDEX_OPENAI_API_KEY=your_openai_key_here
+
+# Optional (defaults shown)
+PAGEINDEX_MONGODB_URI=mongodb://localhost:27017
+PAGEINDEX_DB_NAME=pageindex
+PAGEINDEX_MODEL=gpt-4o-2024-11-20
+```
+
+### Quick Start
+
+```python
+import asyncio
+from pageindex import PageIndex
+
+async def main():
+    # Initialize SDK (auto-loads from .env)
+    client = PageIndex()
+
+    # Process a document
+    doc = await client.documents.process("/path/to/report.pdf")
+    print(f"Document ID: {doc.id}")
+    print(f"Filename: {doc.metadata.filename}")
+
+    # Query the document
+    result = await client.query.search(
+        "What is the total revenue?",
+        doc_id=doc.id
+    )
+    print(f"Answer: {result.answer}")
+    print(f"Sources: {result.sources}")
+
+    # List all documents
+    docs = await client.documents.list()
+    for d in docs:
+        print(f"- {d.id}: {d.metadata.filename}")
+
+asyncio.run(main())
+```
+
+### Document Operations
+
+```python
+# Get a specific document
+doc = await client.documents.get(doc_id)
+
+# List documents with filters
+docs = await client.documents.list(tags=["financial"])
+
+# Delete a document
+await client.documents.delete(doc_id)
+```
+
+### Version Management
+
+```python
+# Get latest version
+version = await client.versions.get(doc_id)
+
+# Get specific version
+version = await client.versions.get(doc_id, version=2)
+
+# List all versions
+versions = await client.versions.list(doc_id)
+for v in versions:
+    print(f"Version {v.version}: created at {v.created_at}")
+```
+
+### Query with Tree Search
+
+```python
+# Search with reasoning-based tree traversal
+result = await client.query.search(
+    question="What are the key risk factors?",
+    doc_id=doc_id,
+    version=None  # Optional: defaults to latest
+)
+
+# Access results
+print(f"Question: {result.question}")
+print(f"Answer: {result.answer}")
+print(f"Document: {result.doc_id}")
+
+# Source citations
+for source in result.sources:
+    print(f"  - {source.title} (Node: {source.node_id})")
+    if source.page_range:
+        print(f"    {source.page_range}")
+```
+
+### Context Manager
+
+```python
+async with PageIndex() as client:
+    doc = await client.documents.process("/path/to/doc.pdf")
+    result = await client.query.search("What is this about?", doc.id)
+```
+
+<!--
 # ☁️ Improved Tree Generation with PageIndex OCR
 
 This repo is designed for generating PageIndex tree structure for simple PDFs, but many real-world use cases involve complex PDFs that are hard to parse by classic Python tools. However, extracting high-quality text from PDF documents remains a non-trivial challenge. Most OCR tools only extract page-level content, losing the broader document context and hierarchy.
