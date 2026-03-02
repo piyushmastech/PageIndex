@@ -7,3 +7,15 @@ from .persistence import (
     get_mongo_client,
     generate_document_id,
 )
+
+# SDK exports (can be imported directly from pageindex.sdk to avoid tiktoken dependency)
+from .sdk.client import PageIndex
+from .sdk.config import SDKConfig, load_config
+from .sdk.models import (
+    Document,
+    DocumentMetadata as SDKDocumentMetadata,
+    DocumentVersion as SDKDocumentVersion,
+    QueryResult,
+    SourceCitation,
+    SearchResult,
+)
